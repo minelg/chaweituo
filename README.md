@@ -8,7 +8,7 @@
 查询指令为：#查委托+委托名（指令中的"+"需要删掉、指令与委托名之间有无空格皆可）
 
 #### 安装教程
-V2:放进机器人Yunzai-Bot/lib/example文件夹即可。
+V2:放进机器人Yunzai-Bot/lib/example文件夹即可。<br>
 V3:放进机器人Yunzai-Bot/plugin/example文件夹即可。
 
 #### 反馈
