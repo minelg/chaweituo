@@ -1,51 +1,84 @@
 import { segment } from "oicq";
 import fetch from "node-fetch";
-
+import fs from "fs";
+import download from "download";
+import YAML from "yaml";
 //项目路径
 const _path = process.cwd();
+
+//安装说明：需要安装依赖 npm i download
 
 //简单应用示例
 
 //1.定义命令规则
 export const rule = {
-  task123321: {
-    reg: "^#*查委托(.*)", //匹配消息正则，命令正则
+    commission: {
+    reg: "^#*委托查询(.*)", //匹配消息正则，命令正则
     priority: 500, //优先级，越小优先度越高
     describe: "【#例子】开发简单示例演示", //【命令】功能说明
   },
 };
 
+
+let file = './data/dailyTask/'
+let url = `http://114.132.218.87:12583${file.slice(1)}`
+
+if (!fs.existsSync(file)) {
+  fs.mkdirSync(file)
+}
+let missionname = await download(encodeURI(url+'委托名字'))
+
+fs.writeFileSync('./data/dailyTask/委托名字.yaml', missionname);
+let missiondata = await download(encodeURI(url+'委托成就'))
+
+fs.writeFileSync('./data/dailyTask/委托成就.yaml', missiondata);
+
+
 //2.编写功能方法
 //方法名字与rule中的examples保持一致
 //测试命令 npm test 例子
-export async function task123321(e) {
-  //e.msg 用户的命令消息
-  //console.log("用户命令：", e.msg);
+export async function commission(e) {
+    if ( !e.msg.replace(/#|＃|委托查询| /g, "")){
+    e.reply("查看原神每日委托是否有隐藏成就，请输入要查询的每日委托名称，如#委托查询愿风带走思念");
+    return true;
+  }
+    let msg = e.msg.replace(/#|＃|委托查询| /g, "")
+    let reg = new RegExp('#|＃|？|。|,|，|·|!|！|—|《|》|…|「|」|『|』|、|查|询|委托|任务|成就', 'g')
+    msg = msg.replace(/\.|\?/g, '').replace(reg, '')
 
-  //执行的逻辑功能
-  let url = "http://114.132.218.87:12583/api/genshin/task/" + e.msg.replace(/#|＃|查委托| /g, ""); //一言接口地址
-  let response = await fetch(url); //调用接口获取数据
-  let data = await response.json();//结果json字符串转对象
-  let msg, name, code = response.status;
-  if (code != 200 && code != 201) return;//请求不成功
-  function requestOK() {
-    if (data.hidden == true) {//判断是不是隐藏
-      name = "隐藏成就" + ('《' + data.name + '》\n')
-    } else {
-      name = "成就" + ('《' + data.name + '》\n')
+
+  // 判断消息是否命中
+    let namelist = fs.readFileSync('./data/dailyTask/委托名字.yaml', 'utf8')
+    if (!namelist.includes(msg)) {
+     e.reply("没有查询到相关任务，请确认任务名称是否正确！");
+     return true;
     }
-    msg = data.desc + "\n"
-    for (var key of data.involve) {
-      if (key.type == '世界任务') break;
-      msg += '每日委托' + ('《' + key.task + '》\n')
+    namelist =  YAML.parse(namelist)
+    let Name = new Map()
+
+    if (!namelist) {e.reply("查询失败");return false}
+    for(var i in namelist){
+      namelist[i].forEach((v) => {
+        Name.set(v, i)
+      })
     }
-    msg += "————\n" + data.msg + "\n————\n※ 文案: B站 oz水银"//大佬写的文案，建议保留，不然人家哪天就不更新了
-    //console.log(`\u001b[32m[Get]\u001b[0m 已发送到\u001b[35m${e.user_id}\u001b[0m`)
-  //最后回复消息
-  //发送消息
-    e.reply(name + msg);
-  };
-  if (code == 201) return e.reply(data.msg);
-  if (code == 200) return requestOK();
-  return true; //返回true 阻挡消息不再往下
-}
+    Name = Name.get(msg.trim())
+
+
+  //判断委托是否含成就并返回数据
+  
+    let datalist = fs.readFileSync('./data/dailyTask/委托成就.yaml', 'utf8')
+    datalist =  YAML.parse(datalist)
+    datalist = datalist.find(v => v.name == Name)
+    if (['蒙德委托', '璃月委托', '稻妻委托', '须弥委托'].includes(Name)) {
+      let msg = `${Name}，无成就。`
+      e.reply(msg)
+      return true;
+    }
+
+    let replyname = `隐藏成就《${datalist.name}》\n${datalist.desc}\n\n${datalist.msg}`
+    if (!datalist.hidden) replyname = replyname.slice(2)
+    let by = '\n————————\n※ 文案: B站 oz水银'
+    e.reply("任务名称：《"+msg+"》\n"+replyname + by)
+    return true;
+} 
